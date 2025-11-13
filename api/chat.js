@@ -1,7 +1,6 @@
 export default async function handler(req, res) {
   const allowedOrigin = process.env.ALLOWED_ORIGIN;
 
-  // Permitir CORS solo desde tu dominio
   res.setHeader("Access-Control-Allow-Origin", allowedOrigin);
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
@@ -16,6 +15,9 @@ export default async function handler(req, res) {
   }
 
   try {
+    // ✅ Asegurarse de leer el body correctamente
+    const body = await req.json();
+
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -23,7 +25,7 @@ export default async function handler(req, res) {
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        model: "gpt-4o-mini",
+        model: "gpt-4o-mini", // si no responde, prueba con "gpt-4o"
         messages: [
           {
             role: "system",
@@ -31,26 +33,25 @@ export default async function handler(req, res) {
           },
           {
             role: "user",
-            content: req.body.prompt || "Genera una descripción creativa para un producto de tienda online."
+            content: body.prompt || "Genera una descripción creativa para un producto de tienda online."
           }
         ],
-        max_tokens: 150
+        max_tokens: 200
       })
     });
 
     if (!response.ok) {
-      const error = await response.text();
-      console.error("Error desde OpenAI:", error);
-      return res.status(500).json({ error: "Error en la API de OpenAI" });
+      const errText = await response.text();
+      console.error("Error desde OpenAI:", errText);
+      return res.status(500).json({ error: "Error en la API de OpenAI", detail: errText });
     }
 
     const data = await response.json();
     const message = data.choices?.[0]?.message?.content || "Sin respuesta generada.";
 
     return res.status(200).json({ reply: message });
-
   } catch (error) {
     console.error("Error interno:", error);
-    return res.status(500).json({ error: "Error interno del servidor" });
+    return res.status(500).json({ error: "Error interno del servidor", detail: error.message });
   }
 }
