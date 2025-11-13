@@ -1,5 +1,6 @@
 export default async function handler(req, res) {
   const allowedOrigin = process.env.ALLOWED_ORIGIN;
+  const apiKey = process.env.OPENAI_API_KEY;
 
   res.setHeader("Access-Control-Allow-Origin", allowedOrigin);
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
@@ -11,29 +12,31 @@ export default async function handler(req, res) {
   }
 
   try {
+    const { message } = req.body || { message: "Hola, prueba de conexión" };
+
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`,
         "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
         model: "gpt-4o-mini",
-        messages: [
-          {
-            role: "system",
-            content:
-              "Eres un experto en marketing, redacción creativa y diseño visual para tiendas Shopify.",
-          },
-          { role: "user", content: req.body.prompt },
-        ],
+        messages: [{ role: "user", content: message }],
       }),
     });
 
+    if (!response.ok) {
+      const error = await response.text();
+      console.error("OpenAI API Error:", error);
+      return res.status(500).json({ error: "Error en la API de OpenAI" });
+    }
+
     const data = await response.json();
-    res.status(200).json(data);
+    res.status(200).json({ reply: data.choices[0].message.content });
   } catch (error) {
-    console.error("Error:", error);
-    res.status(500).json({ error: "Error al conectar con OpenAI" });
+    console.error("Server Error:", error);
+    res.status(500).json({ error: "Error interno del servidor" });
   }
 }
+
